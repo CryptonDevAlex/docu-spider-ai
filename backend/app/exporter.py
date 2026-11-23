@@ -5,165 +5,127 @@ from __future__ import annotations
 import io
 
 from docx import Document
-from docx.shared import Pt, RGBColor
+from docx.shared import Inches, Pt, RGBColor
 from fpdf import FPDF
 
 from .schemas import ScanReport
 
 _CYAN = RGBColor(0x0E, 0x74, 0x90)
 _MUTED = RGBColor(0x64, 0x74, 0x8B)
-
-
-# --------------------------------------------------------------------------- #
-# Word (.docx)
-# --------------------------------------------------------------------------- #
-def _docx_bullets(document: Document, items: list[str]) -> None:
-    for item in items:
-        document.add_paragraph(str(item), style="List Bullet")
-
-
-def _docx_table(document: Document, headers: list[str], rows: list[list[str]]) -> None:
-    table = document.add_table(rows=1, cols=len(headers))
-    table.style = "Table Grid"
-    header_cells = table.rows[0].cells
-    for index, header in enumerate(headers):
-        header_cells[index].text = header
-        for run in header_cells[index].paragraphs[0].runs:
-            run.bold = True
-    for row in rows:
-        cells = table.add_row().cells
-        for index, value in enumerate(row):
-            cells[index].text = str(value)
+_DARK = RGBColor(0x0F, 0x17, 0x2A)
 
 
 def _format_date(report: ScanReport) -> str:
     return report.generated_at.strftime("%d/%m/%Y %H:%M")
 
 
+def _docx_table(document: Document, headers: list[str], rows: list[list[str]]) -> None:
+    table = document.add_table(rows=1, cols=len(headers))
+    table.style = "Light List Accent 1"
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        cell.text = h
+        for p in cell.paragraphs:
+            for r in p.runs:
+                r.bold = True
+                r.font.size = Pt(9)
+    for row in rows:
+        cells = table.add_row().cells
+        for i, value in enumerate(row):
+            cells[i].text = str(value)
+            for p in cells[i].paragraphs:
+                for r in p.runs:
+                    r.font.size = Pt(9)
+
+
 def build_docx(report: ScanReport) -> bytes:
     document = Document()
+    section = document.sections[0]
+    section.left_margin = Inches(0.8)
+    section.right_margin = Inches(0.8)
 
-    title = document.add_heading("Informe DocuSpider AI", level=0)
-    title.alignment = 0
+    p = document.add_paragraph()
+    r = p.add_run("INFORME DOCUSPIDER AI")
+    r.bold = True
+    r.font.size = Pt(24)
+    r.font.color.rgb = _CYAN
 
-    file_paragraph = document.add_paragraph()
-    file_run = file_paragraph.add_run(report.file_name)
-    file_run.bold = True
-    file_run.font.size = Pt(14)
+    p = document.add_paragraph()
+    r = p.add_run(report.file_name)
+    r.bold = True
+    r.font.size = Pt(14)
+    r.font.color.rgb = _DARK
 
-    meta = document.add_paragraph(
-        f"Formato: {report.file_type.upper()}  ·  Unidades: {report.total_pages}  ·  "
-        f"Motor: {report.provider}  ·  Generado: {_format_date(report)}"
-    )
-    meta_run = meta.add_run()
-    meta_run.font.size = Pt(9)
-    meta_run.font.color.rgb = _MUTED
-    meta.runs[0].font.size = Pt(9)
-    meta.runs[0].font.color.rgb = _MUTED
+    p = document.add_paragraph()
+    p.add_run(f"Formato: {report.file_type.upper()}  ·  Unidades: {report.total_pages}  ·  Motor: {report.provider}  ·  Generado: {_format_date(report)}").font.size = Pt(9)
+    p.runs[0].font.color.rgb = _MUTED
 
-    score_paragraph = document.add_paragraph()
-    score_run = score_paragraph.add_run(
-        f"Puntaje de calidad documental: {report.audit.score}/100"
-    )
-    score_run.bold = True
-    score_run.font.size = Pt(11)
-    score_run.font.color.rgb = _CYAN
+    p = document.add_paragraph()
+    r = p.add_run(f"Puntaje de calidad documental: {report.audit.score}/100")
+    r.bold = True
+    r.font.size = Pt(12)
+    r.font.color.rgb = _CYAN
 
-    # 1. Executive summary
+    document.add_page_break()
     document.add_heading("1. Resumen Ejecutivo", level=1)
-    document.add_heading("Visión general y propósito", level=2)
     document.add_paragraph(report.executive_summary.overview)
     if report.executive_summary.purpose:
         document.add_paragraph(report.executive_summary.purpose)
 
     document.add_heading("Desglose por secciones y páginas", level=2)
-    for section in report.executive_summary.sections:
-        document.add_heading(section.title, level=3)
-        document.add_paragraph(section.content)
-        if section.metrics:
-            metrics_text = "  ·  ".join(f"{item.label}: {item.value}" for item in section.metrics)
-            metrics_paragraph = document.add_paragraph()
-            metrics_run = metrics_paragraph.add_run(metrics_text)
-            metrics_run.italic = True
-            metrics_run.font.size = Pt(9)
-            metrics_run.font.color.rgb = _CYAN
-        if section.bullets:
-            _docx_bullets(document, section.bullets)
+    for idx, sec in enumerate(report.executive_summary.sections, start=1):
+        document.add_heading(f"{idx}. {sec.title}", level=3)
+        document.add_paragraph(sec.content)
+        if sec.metrics:
+            p = document.add_paragraph()
+            r = p.add_run("  ·  ".join(f"{m.label}: {m.value}" for m in sec.metrics))
+            r.italic = True
+            r.font.size = Pt(9)
+            r.font.color.rgb = _CYAN
+        for b in sec.bullets:
+            document.add_paragraph(str(b), style="List Bullet")
 
     document.add_heading("Conclusiones clave", level=2)
-    _docx_bullets(
-        document,
-        report.executive_summary.conclusions or ["Sin conclusiones adicionales."],
-    )
-
+    for c in (report.executive_summary.conclusions or ["Sin conclusiones adicionales."]):
+        document.add_paragraph(c, style="List Bullet")
     document.add_heading("Hallazgos críticos", level=2)
-    _docx_bullets(
-        document,
-        report.executive_summary.critical_findings or ["Sin hallazgos críticos."],
-    )
+    for c in (report.executive_summary.critical_findings or ["Sin hallazgos críticos."]):
+        document.add_paragraph(c, style="List Bullet")
 
-    # 2. Data report
+    document.add_page_break()
     document.add_heading("2. Reporte de Datos y Métricas Extraídas", level=1)
     document.add_heading("Indicadores clave", level=2)
-    _docx_table(
-        document,
-        ["Indicador", "Valor", "Descripción"],
-        [[item.label, item.value, item.description] for item in report.data_report.kpis],
-    )
-
+    _docx_table(document, ["Indicador", "Valor", "Descripción"], [[k.label, k.value, k.description] for k in report.data_report.kpis])
     document.add_heading("Entidades detectadas", level=2)
-    entities = report.data_report.entities
-    for label, values in (
-        ("Fechas", entities.dates),
-        ("Montos", entities.money),
-        ("Porcentajes", entities.percentages),
-        ("Correos", entities.emails),
-        ("URLs", entities.urls),
-        ("Palabras clave", entities.keywords),
-        ("Alertas", entities.alerts),
-    ):
+    e = report.data_report.entities
+    for label, values in (("Fechas", e.dates), ("Montos", e.money), ("Porcentajes", e.percentages), ("Correos", e.emails), ("URLs", e.urls), ("Palabras clave", e.keywords), ("Alertas", e.alerts)):
         document.add_paragraph(f"{label} ({len(values)}): {', '.join(values) if values else '—'}")
-
     if report.data_report.table:
         document.add_heading("Tabla de entidades", level=2)
-        _docx_table(
-            document,
-            ["Página", "Tipo", "Valor", "Contexto"],
-            [
-                [str(row.page), row.kind, row.value, row.context[:140]]
-                for row in report.data_report.table
-            ],
-        )
+        _docx_table(document, ["Página", "Tipo", "Valor", "Contexto"], [[str(r.page), r.kind, r.value, r.context[:140]] for r in report.data_report.table])
 
-    # 3. Audit
+    document.add_page_break()
     document.add_heading("3. Auditoría y Sugerencias de Mejora", level=1)
-    audit_score = document.add_paragraph()
-    audit_run = audit_score.add_run(
-        f"Puntaje de calidad documental: {report.audit.score}/100"
-    )
-    audit_run.bold = True
-    audit_run.font.color.rgb = _CYAN
-
-    for finding in report.audit.findings:
-        document.add_heading(f"{finding.title} (impacto {finding.impact})", level=3)
-        document.add_paragraph(finding.detail)
-        recommendation = document.add_paragraph()
-        rec_label = recommendation.add_run("Recomendación: ")
-        rec_label.bold = True
-        recommendation.add_run(finding.recommendation)
-
+    p = document.add_paragraph()
+    r = p.add_run(f"Puntaje: {report.audit.score}/100")
+    r.bold = True
+    r.font.color.rgb = _CYAN
+    for f in report.audit.findings:
+        document.add_heading(f"{f.title} (impacto {f.impact})", level=3)
+        document.add_paragraph(f.detail)
+        rec = document.add_paragraph()
+        rec.add_run("Recomendación: ").bold = True
+        rec.add_run(f.recommendation)
     if report.audit.strengths:
         document.add_heading("Fortalezas", level=2)
-        _docx_bullets(document, report.audit.strengths)
+        for s in report.audit.strengths:
+            document.add_paragraph(s, style="List Bullet")
 
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
 
 
-# --------------------------------------------------------------------------- #
-# PDF (clean white editorial layout)
-# --------------------------------------------------------------------------- #
 def _latin(text: object) -> str:
     return str(text).encode("latin-1", "replace").decode("latin-1")
 
@@ -175,22 +137,20 @@ def _truncate(text: str, max_chars: int) -> str:
 
 
 class _ReportPDF(FPDF):
-    def footer(self) -> None:  # noqa: D401 - fpdf hook
+    def footer(self) -> None:
         self.set_y(-12)
         self.set_font("helvetica", "I", 8)
         self.set_text_color(120, 120, 120)
         self.cell(0, 8, _latin(f"DocuSpider AI · Página {self.page_no()}/{{nb}}"), align="C")
 
 
-def _pdf_table(
-    pdf: FPDF, headers: list[str], rows: list[list[str]], widths: list[int]
-) -> None:
+def _pdf_table(pdf: FPDF, headers: list[str], rows: list[list[str]], widths: list[int]) -> None:
     def draw_header() -> None:
         pdf.set_font("helvetica", "B", 9)
-        pdf.set_text_color(255, 255, 255)
         pdf.set_fill_color(14, 116, 144)
-        for header, width in zip(headers, widths, strict=False):
-            pdf.cell(width, 7, _latin(_truncate(header, int(width * 1.7))), border=1, fill=True)
+        pdf.set_text_color(255, 255, 255)
+        for h, w in zip(headers, widths, strict=False):
+            pdf.cell(w, 7, _latin(_truncate(h, int(w * 1.7))), border=1, fill=True)
         pdf.ln()
 
     draw_header()
@@ -198,14 +158,14 @@ def _pdf_table(
     pdf.set_text_color(15, 23, 42)
     shaded = False
     for row in rows:
-        if pdf.get_y() + 6 > pdf.page_break_trigger:
+        if pdf.get_y() + 8 > pdf.page_break_trigger:
             pdf.add_page()
             draw_header()
             pdf.set_font("helvetica", "", 8)
             pdf.set_text_color(15, 23, 42)
         pdf.set_fill_color(245, 247, 250) if shaded else pdf.set_fill_color(255, 255, 255)
-        for value, width in zip(row, widths, strict=False):
-            pdf.cell(width, 6, _latin(_truncate(str(value), int(width * 1.7))), border=1, fill=True)
+        for value, w in zip(row, widths, strict=False):
+            pdf.cell(w, 6, _latin(_truncate(str(value), int(w * 1.7))), border=1, fill=True)
         pdf.ln()
         shaded = not shaded
     pdf.ln(2)
@@ -216,40 +176,25 @@ def build_pdf(report: ScanReport) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.alias_nb_pages()
     pdf.add_page()
-
     dark = (15, 23, 42)
     cyan = (14, 116, 144)
     muted = (100, 116, 139)
 
-    pdf.set_font("helvetica", "B", 20)
-    pdf.set_text_color(*dark)
-    pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(0, 10, _latin("Informe DocuSpider AI"))
-    pdf.set_font("helvetica", "B", 13)
-    pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(0, 7, _latin(report.file_name))
-    pdf.set_font("helvetica", "", 9)
-    pdf.set_text_color(*muted)
-    pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(
-        0,
-        5,
-        _latin(
-            f"Formato: {report.file_type.upper()}  ·  Unidades: {report.total_pages}  ·  "
-            f"Motor: {report.provider}  ·  Generado: {_format_date(report)}"
-        ),
-    )
-    pdf.ln(2)
-    pdf.set_font("helvetica", "B", 11)
+    pdf.set_font("helvetica", "B", 22)
     pdf.set_text_color(*cyan)
-    pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(0, 7, _latin(f"Puntaje de calidad documental: {report.audit.score}/100"))
-    pdf.set_draw_color(*cyan)
-    pdf.set_line_width(0.4)
-    pdf.line(15, pdf.get_y() + 1, 195, pdf.get_y() + 1)
-    pdf.ln(5)
+    pdf.multi_cell(0, 10, _latin("INFORME DOCUSPIDER AI"))
+    pdf.set_font("helvetica", "B", 14)
+    pdf.set_text_color(*dark)
+    pdf.multi_cell(0, 8, _latin(report.file_name))
+    pdf.set_font("helvetica", "", 10)
+    pdf.set_text_color(*muted)
+    pdf.multi_cell(0, 6, _latin(f"Formato: {report.file_type.upper()}  ·  Unidades: {report.total_pages}  ·  Motor: {report.provider}  ·  Generado: {_format_date(report)}"))
+    pdf.ln(3)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_text_color(*cyan)
+    pdf.multi_cell(0, 8, _latin(f"Puntaje de calidad documental: {report.audit.score}/100"))
 
-    def heading(text: str, size: int = 13, color: tuple[int, int, int] = cyan, before: float = 3) -> None:
+    def heading(text: str, size: int = 13, color=cyan, before: float = 2) -> None:
         pdf.ln(before)
         pdf.set_font("helvetica", "B", size)
         pdf.set_text_color(*color)
@@ -257,79 +202,55 @@ def build_pdf(report: ScanReport) -> bytes:
         pdf.multi_cell(0, 7, _latin(text))
         pdf.ln(1)
 
-    def body(text: str, size: int = 10, color: tuple[int, int, int] = dark) -> None:
+    def body(text: str, size: int = 10, color=dark) -> None:
         pdf.set_font("helvetica", "", size)
         pdf.set_text_color(*color)
         pdf.set_x(pdf.l_margin)
-        pdf.multi_cell(0, 5, _latin(text))
+        pdf.multi_cell(0, 5.5, _latin(text))
         pdf.ln(1)
 
-    def bullet(text: str) -> None:
-        pdf.set_font("helvetica", "", 10)
-        pdf.set_text_color(*dark)
-        pdf.set_x(pdf.l_margin)
-        pdf.multi_cell(0, 5, _latin(f"• {text}"))
-
+    pdf.add_page()
     heading("1. Resumen Ejecutivo")
-    heading("Visión general y propósito", size=11)
     body(report.executive_summary.overview)
     if report.executive_summary.purpose:
         body(report.executive_summary.purpose)
-
     heading("Desglose por secciones y páginas", size=11)
-    for section in report.executive_summary.sections:
-        heading(section.title, size=10, color=dark, before=2)
-        body(section.content, size=9)
-        if section.metrics:
-            metrics_text = "  ·  ".join(f"{item.label}: {item.value}" for item in section.metrics)
-            body(metrics_text, size=9, color=cyan)
-        for item in section.bullets:
-            bullet(item)
-
+    for idx, sec in enumerate(report.executive_summary.sections, start=1):
+        heading(f"{idx}. {sec.title}", size=10, color=dark, before=1)
+        body(sec.content, size=9)
+        if sec.metrics:
+            body("  ·  ".join(f"{m.label}: {m.value}" for m in sec.metrics), size=9, color=cyan)
+        for b in sec.bullets:
+            body(f"• {b}", size=9)
     heading("Conclusiones clave", size=11)
-    for conclusion in report.executive_summary.conclusions:
-        bullet(conclusion)
+    for c in report.executive_summary.conclusions:
+        body(f"• {c}", size=9)
     heading("Hallazgos críticos", size=11)
-    for finding in report.executive_summary.critical_findings:
-        bullet(finding)
+    for c in report.executive_summary.critical_findings:
+        body(f"• {c}", size=9)
 
+    pdf.add_page()
     heading("2. Reporte de Datos y Métricas Extraídas")
     heading("Indicadores clave", size=11)
-    for kpi in report.data_report.kpis:
-        body(f"{kpi.label}: {kpi.value} — {kpi.description}", size=9)
-
+    _pdf_table(pdf, ["Indicador", "Valor", "Descripción"], [[k.label, k.value, k.description] for k in report.data_report.kpis], [45, 25, 110])
     heading("Entidades detectadas", size=11)
-    entities = report.data_report.entities
-    for label, values in (
-        ("Fechas", entities.dates),
-        ("Montos", entities.money),
-        ("Porcentajes", entities.percentages),
-        ("Correos", entities.emails),
-        ("URLs", entities.urls),
-        ("Palabras clave", entities.keywords),
-        ("Alertas", entities.alerts),
-    ):
+    e = report.data_report.entities
+    for label, values in (("Fechas", e.dates), ("Montos", e.money), ("Porcentajes", e.percentages), ("Correos", e.emails), ("URLs", e.urls), ("Palabras clave", e.keywords), ("Alertas", e.alerts)):
         body(f"{label} ({len(values)}): {', '.join(values) if values else '—'}", size=9)
-
     if report.data_report.table:
         heading("Tabla de entidades", size=11)
-        _pdf_table(
-            pdf,
-            ["Página", "Tipo", "Valor"],
-            [[str(row.page), row.kind, row.value] for row in report.data_report.table],
-            [18, 34, 128],
-        )
+        _pdf_table(pdf, ["Página", "Tipo", "Valor"], [[str(r.page), r.kind, r.value] for r in report.data_report.table], [18, 34, 128])
 
+    pdf.add_page()
     heading("3. Auditoría y Sugerencias de Mejora")
-    body(f"Puntaje de calidad documental: {report.audit.score}/100", size=10, color=cyan)
-    for finding in report.audit.findings:
-        heading(f"{finding.title} (impacto {finding.impact})", size=10, color=dark, before=2)
-        body(finding.detail, size=9)
-        body(f"Recomendación: {finding.recommendation}", size=9, color=cyan)
-
+    body(f"Puntaje: {report.audit.score}/100", size=10, color=cyan)
+    for f in report.audit.findings:
+        heading(f"{f.title} (impacto {f.impact})", size=10, color=dark, before=1)
+        body(f.detail, size=9)
+        body(f"Recomendación: {f.recommendation}", size=9, color=cyan)
     if report.audit.strengths:
         heading("Fortalezas", size=11)
-        for strength in report.audit.strengths:
-            bullet(strength)
+        for s in report.audit.strengths:
+            body(f"• {s}", size=9)
 
     return bytes(pdf.output())

@@ -27,7 +27,7 @@ const LEGS: Leg[] = [
   { hip: [72, 57], k1: [88, 72], k2: [110, 84], tip: [128, 92], group: "a" },
 ];
 
-export function WalkingSpider({ targetRef, durationMs = 1700 }: WalkingSpiderProps) {
+export function WalkingSpider({ targetRef, durationMs = 3200 }: WalkingSpiderProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 

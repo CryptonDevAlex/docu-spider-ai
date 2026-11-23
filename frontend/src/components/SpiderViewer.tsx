@@ -319,11 +319,13 @@ function OriginalViewer({
   fileType,
   fileName,
   currentPage,
+  showSpider,
 }: {
   fileUrl: string;
   fileType: string;
   fileName: string;
   currentPage: number;
+  showSpider: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const type = (fileType || "").toLowerCase();
@@ -365,8 +367,8 @@ function OriginalViewer({
           </div>
         </div>
       )}
-      <div className="sheet-scan-band" aria-hidden="true" />
-      <WalkingSpider targetRef={sheetRef} />
+      {showSpider && <div className="sheet-scan-band" aria-hidden="true" />}
+      {showSpider && <WalkingSpider targetRef={sheetRef} durationMs={3200} />}
     </div>
   );
 }
@@ -429,6 +431,7 @@ export function SpiderViewer({ state }: { state: ScanState }) {
                 fileType={state.scan.file_type}
                 fileName={state.scan.file_name}
                 currentPage={state.currentPage || 1}
+                showSpider={scanning}
               />
             ) : (
               state.pages.map((page) => (
