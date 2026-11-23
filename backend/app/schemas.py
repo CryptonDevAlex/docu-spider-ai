@@ -90,12 +90,17 @@ class DataReport(BaseModel):
 class SummarySection(BaseModel):
     title: str
     content: str
+    bullets: list[str] = Field(default_factory=list)
+    metrics: list[KpiItem] = Field(default_factory=list)
 
 
 class ExecutiveSummary(BaseModel):
     overview: str
+    purpose: str = ""
     sections: list[SummarySection]
-    highlights: list[str]
+    highlights: list[str] = Field(default_factory=list)
+    conclusions: list[str] = Field(default_factory=list)
+    critical_findings: list[str] = Field(default_factory=list)
 
 
 class AuditFinding(BaseModel):

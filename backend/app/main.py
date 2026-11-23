@@ -7,21 +7,25 @@ Endpoints:
     POST /api/scan               -> upload a document and create a scan session
     POST /api/scan/sample        -> create a scan session from the built-in demo
     GET  /api/scan/{id}/stream   -> SSE stream crawling the document page by page
+    POST /api/export/docx        -> export a report as a Word (.docx) file
+    POST /api/export/pdf         -> export a report as a clean white PDF file
 """
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from . import __version__
 from .config import get_settings
+from .exporter import build_docx, build_pdf
 from .parsers import SUPPORTED_EXTENSIONS, UnsupportedDocumentError, parse_document
 from .sample import build_sample_document
-from .schemas import ParsedDocument, ScanCreated
+from .schemas import ParsedDocument, ScanCreated, ScanReport
 from .spider_engine import stream_scan
 
 settings = get_settings()
@@ -139,4 +143,34 @@ async def scan_stream(scan_id: str) -> StreamingResponse:
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+def _export_filename(file_name: str, extension: str) -> str:
+    stem = file_name.rsplit(".", 1)[0] if "." in file_name else file_name
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("_") or "documento"
+    return f"{safe}_informe_docuspider.{extension}"
+
+
+@app.post("/api/export/docx")
+async def export_docx(report: ScanReport) -> Response:
+    content = build_docx(report)
+    filename = _export_filename(report.file_name, "docx")
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/export/pdf")
+async def export_pdf(report: ScanReport) -> Response:
+    content = build_pdf(report)
+    filename = _export_filename(report.file_name, "pdf")
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

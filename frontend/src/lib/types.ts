@@ -48,6 +48,8 @@ export interface TableRow {
 export interface SummarySection {
   title: string;
   content: string;
+  bullets?: string[];
+  metrics?: KpiItem[];
 }
 
 export interface AuditFinding {
@@ -65,8 +67,11 @@ export interface ScanReport {
   provider: string;
   executive_summary: {
     overview: string;
+    purpose?: string;
     sections: SummarySection[];
     highlights: string[];
+    conclusions?: string[];
+    critical_findings?: string[];
   };
   data_report: {
     kpis: KpiItem[];

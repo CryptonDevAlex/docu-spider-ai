@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import type { AuditFinding, ScanReport } from "@/lib/types";
-import { downloadJson, downloadMarkdown } from "@/lib/report";
+import { downloadDocx, downloadPdf } from "@/lib/report";
 
 type TabKey = "resumen" | "datos" | "auditoria";
 
@@ -50,6 +50,8 @@ export function ResultsPanel({
   const [tab, setTab] = useState<TabKey>("resumen");
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("todos");
+  const [exporting, setExporting] = useState<"docx" | "pdf" | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const kinds = useMemo(() => {
     const set = new Set(report.data_report.table.map((row) => row.kind));
@@ -68,6 +70,26 @@ export function ResultsPanel({
   }, [report, query, kind]);
 
   const entities = report.data_report.entities;
+  const conclusions = report.executive_summary.conclusions ?? [];
+  const criticalFindings = report.executive_summary.critical_findings ?? [];
+
+  async function handleExport(target: "docx" | "pdf") {
+    setExportError(null);
+    setExporting(target);
+    try {
+      if (target === "docx") {
+        await downloadDocx(report);
+      } else {
+        await downloadPdf(report);
+      }
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "No se pudo generar el archivo. Inténtalo de nuevo.",
+      );
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <section className="mx-auto max-w-6xl px-5 pb-16 pt-4 animate-fade-up">
@@ -86,35 +108,37 @@ export function ResultsPanel({
           </div>
         </div>
 
-        <div className="no-print flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => downloadMarkdown(report)}
-            className="rounded-lg border border-spider-border px-3 py-2 text-xs font-semibold text-spider-text transition hover:border-spider-cyan/50 hover:text-spider-cyan"
-          >
-            Descargar .md
-          </button>
-          <button
-            type="button"
-            onClick={() => downloadJson(report)}
-            className="rounded-lg border border-spider-border px-3 py-2 text-xs font-semibold text-spider-text transition hover:border-spider-cyan/50 hover:text-spider-cyan"
-          >
-            Descargar .json
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-lg border border-spider-emerald/40 bg-spider-emerald/10 px-3 py-2 text-xs font-semibold text-spider-emerald transition hover:brightness-110"
-          >
-            Imprimir / PDF
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-lg bg-gradient-to-r from-spider-cyan to-spider-emerald px-3 py-2 text-xs font-bold text-spider-bg transition hover:brightness-110"
-          >
-            Nuevo análisis
-          </button>
+        <div className="no-print flex flex-col items-end gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => handleExport("docx")}
+              disabled={exporting !== null}
+              className="flex items-center gap-2 rounded-lg border border-spider-cyan/40 bg-spider-cyan/10 px-4 py-2.5 text-xs font-semibold text-spider-cyan transition hover:brightness-110 disabled:opacity-50"
+            >
+              <span aria-hidden="true">📄</span>
+              {exporting === "docx" ? "Generando…" : "Descargar Word (.docx)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport("pdf")}
+              disabled={exporting !== null}
+              className="flex items-center gap-2 rounded-lg border border-spider-rose/40 bg-spider-rose/10 px-4 py-2.5 text-xs font-semibold text-spider-rose transition hover:brightness-110 disabled:opacity-50"
+            >
+              <span aria-hidden="true">📑</span>
+              {exporting === "pdf" ? "Generando…" : "Descargar PDF (.pdf)"}
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded-lg bg-gradient-to-r from-spider-cyan to-spider-emerald px-4 py-2.5 text-xs font-bold text-spider-bg transition hover:brightness-110"
+            >
+              Nuevo análisis
+            </button>
+          </div>
+          {exportError && (
+            <p className="text-xs text-spider-rose">{exportError}</p>
+          )}
         </div>
       </div>
 
@@ -133,34 +157,118 @@ export function ResultsPanel({
 
       {tab === "resumen" && (
         <div className="grid gap-5 lg:grid-cols-3">
-          <div className="panel p-6 lg:col-span-2">
-            <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-cyan">
-              Panorama general
-            </h3>
-            <p className="text-sm leading-7 text-spider-text/85">{report.executive_summary.overview}</p>
+          <div className="space-y-5 lg:col-span-2">
+            <div className="panel p-6">
+              <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-cyan">
+                Visión general y propósito
+              </h3>
+              <p className="text-sm leading-7 text-spider-text/85">{report.executive_summary.overview}</p>
+              {report.executive_summary.purpose && (
+                <p className="mt-3 rounded-xl border border-spider-cyan/20 bg-spider-cyan/5 p-3 text-sm leading-6 text-spider-cyan/90">
+                  {report.executive_summary.purpose}
+                </p>
+              )}
+            </div>
 
-            <div className="mt-6 space-y-4">
-              {report.executive_summary.sections.map((section) => (
-                <div key={section.title} className="rounded-xl border border-spider-border bg-spider-bg/50 p-4">
-                  <p className="mb-1 text-sm font-semibold text-spider-cyan">{section.title}</p>
-                  <p className="text-sm leading-6 text-spider-text/75">{section.content}</p>
-                </div>
-              ))}
+            <div className="panel p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-mono uppercase tracking-[0.2em] text-spider-cyan">
+                  Desglose por secciones y páginas
+                </h3>
+                <span className="rounded-full border border-spider-border px-2 py-0.5 text-[10px] text-spider-muted">
+                  {report.executive_summary.sections.length} secciones
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {report.executive_summary.sections.map((section, index) => (
+                  <div
+                    key={`${section.title}-${index}`}
+                    className="rounded-xl border border-spider-border bg-spider-bg/50 p-4"
+                  >
+                    <p className="text-sm font-semibold text-spider-cyan">{section.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-spider-text/75">{section.content}</p>
+
+                    {section.metrics && section.metrics.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {section.metrics.map((metric) => (
+                          <span
+                            key={metric.label}
+                            className="rounded-md border border-spider-emerald/30 bg-spider-emerald/5 px-2 py-1 text-[11px] text-spider-emerald"
+                          >
+                            {metric.label}: <span className="font-bold">{metric.value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {section.bullets && section.bullets.length > 0 && (
+                      <ul className="mt-3 space-y-1.5">
+                        {section.bullets.map((bullet, bulletIndex) => (
+                          <li
+                            key={`${bullet}-${bulletIndex}`}
+                            className="flex gap-2 text-xs leading-5 text-spider-text/70"
+                          >
+                            <span className="mt-0.5 text-spider-cyan">▸</span>
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="panel p-6">
-            <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-emerald">
-              Puntos clave
-            </h3>
-            <ul className="space-y-3">
-              {report.executive_summary.highlights.map((highlight, index) => (
-                <li key={index} className="flex gap-2 text-sm leading-6 text-spider-text/80">
-                  <span className="mt-1 text-spider-emerald">◆</span>
-                  <span>{highlight}</span>
-                </li>
-              ))}
-            </ul>
+          <div className="space-y-5">
+            <div className="panel p-6">
+              <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-emerald">
+                Conclusiones clave
+              </h3>
+              <ul className="space-y-3">
+                {conclusions.length === 0 ? (
+                  <li className="text-sm text-spider-muted">Sin conclusiones adicionales.</li>
+                ) : (
+                  conclusions.map((conclusion, index) => (
+                    <li key={index} className="flex gap-2 text-sm leading-6 text-spider-text/80">
+                      <span className="mt-1 text-spider-emerald">◆</span>
+                      <span>{conclusion}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+
+            <div className="panel border-spider-rose/30 p-6">
+              <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-rose">
+                Hallazgos críticos
+              </h3>
+              <ul className="space-y-3">
+                {criticalFindings.map((finding, index) => (
+                  <li
+                    key={index}
+                    className="rounded-lg border border-spider-rose/25 bg-spider-rose/5 p-3 text-sm leading-6 text-spider-text/85"
+                  >
+                    {finding}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="panel p-6">
+              <h3 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-spider-amber">
+                Puntos clave
+              </h3>
+              <ul className="space-y-2">
+                {report.executive_summary.highlights.map((highlight, index) => (
+                  <li key={index} className="flex gap-2 text-xs leading-5 text-spider-text/75">
+                    <span className="text-spider-amber">•</span>
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       )}

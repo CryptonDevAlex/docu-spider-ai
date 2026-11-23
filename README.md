@@ -17,7 +17,7 @@
 | 🔎 **Entity Extraction** | Dates, monetary amounts, percentages, emails, URLs, keywords and risk alerts detected per page and aggregated |
 | 📊 **3-Tab Report Dashboard** | Executive Summary · Extracted Data (KPIs + filterable table) · Audit & Improvements with impact levels |
 | 📈 **Document Audit** | Detects long paragraphs, weak structure, numeric data without context, oversized sentences and currency inconsistencies, then scores quality 0–100 |
-| 💾 **Export Everywhere** | Download the full report as Markdown (`.md`) or JSON (`.json`), or print/save as PDF |
+| 💾 **Export Everywhere** | Download the full report as a formatted Word document (`.docx`) or a clean white PDF (`.pdf`) |
 | 🎯 **One-Click Demo** | Built-in 9-page Spanish contract to try the full crawl instantly |
 | 🆓 **Zero-Cost Offline Mode** | No API keys, no internet and no external database required |
 
@@ -32,7 +32,7 @@
 │   ┌───────────────┐    ┌────────────────────┐    ┌──────────────────────────┐  │
 │   │  Upload Zone  │    │  Animated Spider   │    │  3-Tab Results Panel     │  │
 │   │  Drag & Drop  │    │  Viewer (SSE live) │    │  Summary / Data / Audit  │  │
-│   │  + Sample Doc │    │  laser + node map  │    │  Export MD · JSON · PDF  │  │
+│   │  + Sample Doc │    │  laser + node map  │    │  Export Word · PDF       │  │
 │   └───────┬───────┘    └─────────┬──────────┘    └────────────┬─────────────┘  │
 │           │                      │                            │                │
 │           └──────────────┬───────┴────────────────────────────┘                │
@@ -189,7 +189,7 @@ docu-spider-ai/
 | **Streaming** | Server-Sent Events (SSE) with `StreamingResponse` |
 | **Intelligence** | Offline heuristic engine + optional OpenAI / Gemini |
 | **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS |
-| **Export** | Markdown, JSON, browser Print → PDF |
+| **Export** | Word (.docx) via python-docx, clean white PDF via fpdf2 |
 
 ---
 
@@ -202,6 +202,8 @@ docu-spider-ai/
 | `POST` | `/api/scan` | Upload a document (multipart) → returns `scan_id` |
 | `POST` | `/api/scan/sample` | Create a scan from the built-in demo document |
 | `GET` | `/api/scan/{id}/stream` | SSE stream: `status`, `page`, `done`, `error` events |
+| `POST` | `/api/export/docx` | Export a report as a formatted Word (`.docx`) file |
+| `POST` | `/api/export/pdf` | Export a report as a clean white PDF (`.pdf`) file |
 
 ---
 

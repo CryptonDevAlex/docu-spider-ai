@@ -186,6 +186,130 @@ def _long_paragraphs(pages: list[DocumentPage]) -> list[tuple[int, int]]:
     return offenders
 
 
+def _document_kind(text: str) -> str:
+    lowered = text.lower()
+    mapping = [
+        (("contrato",), "un contrato"),
+        (("informe",), "un informe técnico"),
+        (("propuesta",), "una propuesta"),
+        (("presupuesto",), "un presupuesto"),
+        (("factura",), "una factura"),
+        (("póliza", "poliza"), "una póliza"),
+        (("acta",), "un acta"),
+        (("manual",), "un manual"),
+        (("tesis",), "una tesis"),
+        (("reporte",), "un reporte"),
+    ]
+    for keywords, label in mapping:
+        if any(keyword in lowered for keyword in keywords):
+            return label
+    return "un documento general"
+
+
+def _page_topic(text: str) -> str:
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    cleaned = re.sub(r"\s+", " ", first_line).strip()
+    if not cleaned:
+        return "Contenido"
+    return cleaned[:70] + "…" if len(cleaned) > 70 else cleaned
+
+
+def _build_page_sections(
+    document: ParsedDocument, per_page: list[Entities]
+) -> list[SummarySection]:
+    sections: list[SummarySection] = []
+    for page, entities in zip(document.pages, per_page, strict=False):
+        words = len(page.text.split())
+        snippet = re.sub(r"\s+", " ", page.text.strip())[:220]
+        entity_count = (
+            len(entities.dates)
+            + len(entities.money)
+            + len(entities.percentages)
+            + len(entities.emails)
+            + len(entities.urls)
+        )
+
+        bullets: list[str] = []
+        for date in entities.dates[:3]:
+            bullets.append(f"Fecha detectada: {date}")
+        for amount in entities.money[:3]:
+            bullets.append(f"Monto detectado: {amount}")
+        for percent in entities.percentages[:2]:
+            bullets.append(f"Porcentaje detectado: {percent}")
+        for email in entities.emails[:2]:
+            bullets.append(f"Contacto detectado: {email}")
+        for alert in entities.alerts[:2]:
+            bullets.append(f"Alerta: {alert}")
+        if not bullets:
+            bullets.append("Sin entidades críticas en esta unidad.")
+
+        metrics = [
+            KpiItem(label="Palabras", value=str(words), description="Conteo en la unidad"),
+            KpiItem(label="Entidades", value=str(entity_count), description="Datos detectados"),
+            KpiItem(label="Alertas", value=str(len(entities.alerts)), description="Señales de riesgo"),
+        ]
+
+        content = (
+            f"Unidad «{page.label}» con {words} palabras. Se identificaron "
+            f"{len(entities.dates)} fechas, {len(entities.money)} montos, "
+            f"{len(entities.percentages)} porcentajes y {len(entities.alerts)} alertas. "
+            f"Fragmento representativo: «{snippet}»"
+        )
+        sections.append(
+            SummarySection(
+                title=f"{page.label} · {_page_topic(page.text)}",
+                content=content,
+                bullets=bullets,
+                metrics=metrics,
+            )
+        )
+        if len(sections) >= 24:
+            break
+    return sections
+
+
+def _build_conclusions(
+    entities: Entities, entity_total: int, findings: list[AuditFinding], score: int
+) -> list[str]:
+    conclusions: list[str] = []
+    if entity_total:
+        conclusions.append(
+            f"El documento aporta {entity_total} entidades verificables entre fechas, montos, "
+            "porcentajes y contactos que deben validarse antes de su uso."
+        )
+    if entities.money:
+        conclusions.append(
+            f"Se identificaron {len(entities.money)} montos económicos; conviene confirmar su moneda, "
+            "vigencia y condiciones de pago."
+        )
+    if entities.dates:
+        conclusions.append(
+            f"Existen {len(entities.dates)} fechas relevantes que deben contrastarse con los plazos y "
+            "vigencias declarados."
+        )
+    if findings:
+        conclusions.append(
+            f"La auditoría registra {len(findings)} observaciones; priorizar las de impacto alto para "
+            "mejorar la claridad y el cumplimiento."
+        )
+    conclusions.append(
+        f"El puntaje de calidad documental es {score}/100, un indicador "
+        f"{'sólido' if score >= 80 else 'aceptable' if score >= 60 else 'que requiere atención'}."
+    )
+    return conclusions[:5]
+
+
+def _build_critical_findings(
+    findings: list[AuditFinding], entities: Entities
+) -> list[str]:
+    critical = [f"{finding.title}: {finding.detail}" for finding in findings if finding.impact == "alto"]
+    if not critical:
+        critical = list(entities.alerts[:4])
+    if not critical:
+        critical = ["No se detectaron hallazgos críticos; el documento es de bajo riesgo."]
+    return critical[:5]
+
+
 def build_local_report(document: ParsedDocument, per_page: list[Entities]) -> ScanReport:
     """Build the full Spanish report with the offline heuristic engine."""
     total_entities = merge_entities(per_page)
@@ -201,40 +325,12 @@ def build_local_report(document: ParsedDocument, per_page: list[Entities]) -> Sc
         + len(total_entities.urls)
     )
 
-    overview = (
-        f"El documento «{document.file_name}» ({document.file_type.upper()}) se compone de "
-        f"{document.total_pages} unidades de lectura. Durante el rastreo se identificaron "
-        f"{entity_total} entidades de datos, {len(total_entities.keywords)} palabras clave y "
-        f"{len(total_entities.alerts)} señales de alerta. El nivel de estructura detectado es "
-        f"{'alto' if structure_hits >= document.total_pages else 'moderado' if structure_hits else 'bajo'}."
+    doc_kind = _document_kind(text)
+    structure_level = (
+        "alto" if structure_hits >= document.total_pages else "moderado" if structure_hits else "bajo"
     )
 
-    sections = [
-        SummarySection(
-            title="Naturaleza del documento",
-            content=(
-                f"Archivo procesado: {document.file_name}. Formato {document.file_type.upper()} con "
-                f"{document.total_pages} unidades. Extensión aproximada de {int(readability['words'])} palabras "
-                f"y {int(readability['sentences'])} oraciones."
-            ),
-        ),
-        SummarySection(
-            title="Datos clave detectados",
-            content=(
-                f"Fechas: {len(total_entities.dates)} · Montos: {len(total_entities.money)} · "
-                f"Porcentajes: {len(total_entities.percentages)} · Correos: {len(total_entities.emails)} · "
-                f"URLs: {len(total_entities.urls)}."
-            ),
-        ),
-        SummarySection(
-            title="Estructura y contenido",
-            content=(
-                f"Se hallaron {structure_hits} marcadores de estructura (capítulos, secciones, listas). "
-                f"Legibilidad media: {readability['avg_sentence']} palabras por oración y "
-                f"{readability['avg_word']} letras por palabra."
-            ),
-        ),
-    ]
+    sections = _build_page_sections(document, per_page)
 
     highlights: list[str] = []
     if total_entities.money:
@@ -247,8 +343,6 @@ def build_local_report(document: ParsedDocument, per_page: list[Entities]) -> Sc
         highlights.append(f"El documento presenta {structure_hits} marcadores estructurales.")
     if not highlights:
         highlights.append("No se detectaron entidades críticas; el documento es de bajo riesgo.")
-
-    executive = ExecutiveSummary(overview=overview, sections=sections, highlights=highlights)
 
     kpis = [
         KpiItem(label="Unidades rastreadas", value=str(document.total_pages), description="Páginas, hojas o bloques procesados."),
@@ -370,6 +464,30 @@ def build_local_report(document: ParsedDocument, per_page: list[Entities]) -> Sc
     score = max(0, min(100, score))
     audit = AuditReport(score=score, findings=findings, strengths=strengths)
 
+    overview = (
+        f"El documento «{document.file_name}» ({document.file_type.upper()}, "
+        f"{document.total_pages} unidades) se clasifica como {doc_kind}. El rastreo recorrió "
+        f"{int(readability['words'])} palabras y detectó {entity_total} entidades de datos, "
+        f"{len(total_entities.keywords)} palabras clave y {len(total_entities.alerts)} señales de alerta. "
+        f"El nivel de estructura es {structure_level} y la auditoría otorga {score}/100 con "
+        f"{len(findings)} observaciones."
+    )
+    purpose = (
+        f"El propósito del documento es presentar y estructurar el contenido de {doc_kind}, "
+        "permitiendo identificar obligaciones, cifras, plazos y riesgos relevantes para la toma de decisiones."
+    )
+    conclusions = _build_conclusions(total_entities, entity_total, findings, score)
+    critical_findings = _build_critical_findings(findings, total_entities)
+
+    executive = ExecutiveSummary(
+        overview=overview,
+        purpose=purpose,
+        sections=sections,
+        highlights=highlights,
+        conclusions=conclusions,
+        critical_findings=critical_findings,
+    )
+
     return ScanReport(
         file_name=document.file_name,
         file_type=document.file_type,
@@ -409,17 +527,23 @@ async def enrich_with_ai(
         return report
 
     try:
-        report.executive_summary = ExecutiveSummary(
-            overview=str(data.get("overview", report.executive_summary.overview)),
-            sections=[
-                SummarySection(title=str(item["title"]), content=str(item["content"]))
-                for item in data.get("sections", [])
-                if isinstance(item, dict) and item.get("title") and item.get("content")
-            ]
-            or report.executive_summary.sections,
-            highlights=[str(item) for item in data.get("highlights", [])]
-            or report.executive_summary.highlights,
+        ai_sections = [
+            SummarySection(
+                title=str(item["title"]),
+                content=str(item["content"]),
+                bullets=[str(bullet) for bullet in item.get("bullets", []) if bullet],
+            )
+            for item in data.get("sections", [])
+            if isinstance(item, dict) and item.get("title") and item.get("content")
+        ]
+        report.executive_summary.overview = str(
+            data.get("overview", report.executive_summary.overview)
         )
+        if ai_sections:
+            report.executive_summary.sections = ai_sections
+        ai_highlights = [str(item) for item in data.get("highlights", []) if item]
+        if ai_highlights:
+            report.executive_summary.highlights = ai_highlights
         ai_findings = [
             AuditFinding(
                 title=str(item["title"]),
