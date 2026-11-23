@@ -194,6 +194,22 @@ def build_docx(report: ScanReport) -> bytes:
             for r in bp.runs:
                 r.font.size = Pt(10)
 
+    doc.add_page_break()
+    _docx_title(doc, "4. Detalle Completo Extraído", 18, _CYAN, 0, 6)
+    _docx_body(doc, "Detalle consolidado por sección/página con hallazgos, métricas y contexto extraído.", 10, _MUTED, italic=True)
+    for idx, s in enumerate(report.executive_summary.sections, start=1):
+        _docx_title(doc, f"4.{idx} {s.title}", 12, _DARK, 10, 3)
+        _docx_body(doc, s.content, 10)
+        if s.metrics:
+            _docx_body(doc, "Métricas: " + "  ·  ".join(f"{m.label}: {m.value}" for m in s.metrics), 9, _CYAN, italic=True)
+        for b in s.bullets:
+            bp = doc.add_paragraph(str(b), style="List Bullet")
+            for r in bp.runs:
+                r.font.size = Pt(10)
+    if report.data_report.table:
+        _docx_title(doc, "4.X Contexto de entidades detectadas", 12, _DARK, 10, 3)
+        _docx_table(doc, ["Página", "Tipo", "Valor", "Contexto"], [[str(r.page), r.kind, r.value, r.context] for r in report.data_report.table])
+
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
@@ -367,5 +383,19 @@ def build_pdf(report: ScanReport) -> bytes:
         sub("Fortalezas identificadas")
         for s in report.audit.strengths:
             body(f"• {s}")
+
+    pdf.add_page()
+    heading("4. Detalle Completo Extraído")
+    body("Detalle consolidado por sección/página con hallazgos, métricas y contexto extraído.", 9, (100,116,139), True)
+    for idx, s in enumerate(report.executive_summary.sections, start=1):
+        sub(f"4.{idx} {s.title}")
+        body(s.content)
+        if s.metrics:
+            body("Métricas: " + "  ·  ".join(f"{m.label}: {m.value}" for m in s.metrics), 8, (14,116,144), True)
+        for b in s.bullets:
+            body(f"• {b}")
+    if report.data_report.table:
+        sub("4.X Contexto de entidades detectadas")
+        _pdf_table(pdf, ["Página","Tipo","Valor","Contexto"], [[str(r.page),r.kind,r.value,r.context[:90]] for r in report.data_report.table], [16,26,38,100])
 
     return bytes(pdf.output())
