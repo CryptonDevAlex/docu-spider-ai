@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .schemas import DocBlock, DocumentPage, ParsedDocument
 
-SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".csv", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
 
 _TXT_CHUNK_SIZE = 2000
 _CSV_ROWS_PER_PAGE = 60
@@ -298,8 +298,6 @@ _PARSERS = {
     ".pdf": _parse_pdf,
     ".docx": _parse_docx,
     ".xlsx": _parse_xlsx,
-    ".csv": _parse_csv,
-    ".txt": _parse_txt,
 }
 
 

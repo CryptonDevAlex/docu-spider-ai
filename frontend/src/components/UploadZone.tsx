@@ -4,13 +4,11 @@ import { useRef, useState } from "react";
 
 import { SpiderMark } from "./SpiderMark";
 
-const ACCEPTED = ".pdf,.docx,.xlsx,.csv,.txt";
+const ACCEPTED = ".pdf,.docx,.xlsx";
 const FORMATS = [
   { ext: "PDF", color: "text-spider-rose" },
   { ext: "DOCX", color: "text-spider-cyan" },
   { ext: "XLSX", color: "text-spider-emerald" },
-  { ext: "CSV", color: "text-spider-amber" },
-  { ext: "TXT", color: "text-spider-violet" },
 ];
 
 interface UploadZoneProps {
@@ -44,8 +42,8 @@ export function UploadZone({ onFile, onSample, busy }: UploadZoneProps) {
           Rastrea cualquier documento con una <span className="text-spider-cyan">araña visual</span>
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm text-spider-muted">
-          Sube un PDF, DOCX, XLSX, CSV o TXT y observa en tiempo real cómo la araña recorre cada hoja,
-          extrae entidades y genera un informe de auditoría en español.
+          Sube un PDF, Word (.docx) o Excel (.xlsx) y observa en tiempo real cómo la araña recorre cada hoja,
+          extrae entidades y genera un informe profesional detallado en español.
         </p>
       </div>
 
