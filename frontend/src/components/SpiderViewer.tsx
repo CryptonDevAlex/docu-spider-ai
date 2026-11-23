@@ -314,25 +314,78 @@ function entityChips(entities: Entities | undefined) {
   ];
 }
 
+function OriginalViewer({
+  fileUrl,
+  fileType,
+  fileName,
+  currentPage,
+}: {
+  fileUrl: string;
+  fileType: string;
+  fileName: string;
+  currentPage: number;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const type = (fileType || "").toLowerCase();
+  const isText = type === "txt" || type === "csv";
+  const isPdf = type === "pdf";
+  const isImage = ["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"].includes(type);
+
+  return (
+    <div
+      ref={sheetRef}
+      className="relative mx-auto w-full max-w-[920px] overflow-hidden rounded-md bg-white shadow-[0_28px_70px_-28px_rgba(0,0,0,0.85)]"
+      style={{ minHeight: 920 }}
+    >
+      {isPdf && (
+        <iframe
+          src={`${fileUrl}#page=${Math.max(1, currentPage)}&view=FitH`}
+          title={fileName}
+          className="h-[920px] w-full bg-white"
+        />
+      )}
+      {isImage && (
+        <div className="grid min-h-[920px] place-items-center bg-white p-4">
+          <img src={fileUrl} alt={fileName} className="max-h-[880px] w-auto max-w-full object-contain" />
+        </div>
+      )}
+      {isText && (
+        <iframe src={fileUrl} title={fileName} className="h-[920px] w-full bg-white" />
+      )}
+      {!isPdf && !isImage && !isText && (
+        <div className="grid min-h-[920px] place-items-center bg-slate-50 p-10 text-center text-slate-600">
+          <div>
+            <p className="text-lg font-semibold text-slate-800">Vista original no disponible en el navegador</p>
+            <p className="mt-2 text-sm">
+              Los archivos DOCX/XLSX conservan su formato para auditoría; aquí se muestra el rastreo y el informe generado.
+            </p>
+            <a href={fileUrl} download={fileName} className="mt-4 inline-block rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white">
+              Descargar archivo original
+            </a>
+          </div>
+        </div>
+      )}
+      <div className="sheet-scan-band" aria-hidden="true" />
+      <WalkingSpider targetRef={sheetRef} />
+    </div>
+  );
+}
+
 export function SpiderViewer({ state }: { state: ScanState }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const sheetRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const current = state.pages[state.pages.length - 1];
   const scanning = state.phase === "scanning";
   const done = state.phase === "done";
   const chips = entityChips(current?.entities);
+  const showOriginal = Boolean(state.fileUrl) && Boolean(state.scan?.file_type);
 
   useEffect(() => {
-    const container = containerRef.current;
     const sheet = sheetRefs.current[state.currentPage];
-    if (container && sheet) {
-      container.scrollTo({
-        top: Math.max(0, sheet.offsetTop - 18),
-        behavior: "smooth",
-      });
+    if (sheet && !showOriginal) {
+      sheet.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [state.currentPage, state.pages.length]);
+  }, [state.currentPage, state.pages.length, showOriginal]);
 
   useEffect(() => {
     if (logRef.current) {
@@ -368,24 +421,30 @@ export function SpiderViewer({ state }: { state: ScanState }) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div
-          ref={containerRef}
-          className="viewer-scroll relative h-[74vh] overflow-y-auto rounded-2xl border border-spider-border bg-[#070b13] p-5 sm:p-8"
-        >
+        <div className="viewer-scroll relative h-[74vh] overflow-y-auto rounded-2xl border border-spider-border bg-[#070b13] p-5 sm:p-8">
           <div className="space-y-8 pb-8">
-            {state.pages.map((page) => (
-              <PaperSheet
-                key={page.page_number}
-                page={page}
-                isCurrent={page.page_number === state.currentPage}
-                showSpider={scanning}
-                registerRef={(pageNumber, element) => {
-                  sheetRefs.current[pageNumber] = element;
-                }}
+            {showOriginal && state.fileUrl && state.scan ? (
+              <OriginalViewer
+                fileUrl={state.fileUrl}
+                fileType={state.scan.file_type}
+                fileName={state.scan.file_name}
+                currentPage={state.currentPage || 1}
               />
-            ))}
+            ) : (
+              state.pages.map((page) => (
+                <PaperSheet
+                  key={page.page_number}
+                  page={page}
+                  isCurrent={page.page_number === state.currentPage}
+                  showSpider={scanning}
+                  registerRef={(pageNumber, element) => {
+                    sheetRefs.current[pageNumber] = element;
+                  }}
+                />
+              ))
+            )}
 
-            {state.pages.length === 0 && (
+            {!showOriginal && state.pages.length === 0 && (
               <div className="grid h-full place-items-center text-center">
                 <div>
                   <p className="text-sm text-spider-muted">

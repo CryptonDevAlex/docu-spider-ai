@@ -10,6 +10,7 @@ export type ScanPhase = "idle" | "uploading" | "scanning" | "done" | "error";
 export interface ScanState {
   phase: ScanPhase;
   scan: ScanCreated | null;
+  fileUrl: string | null;
   currentPage: number;
   totalPages: number;
   progress: number;
@@ -22,6 +23,7 @@ export interface ScanState {
 const INITIAL_STATE: ScanState = {
   phase: "idle",
   scan: null,
+  fileUrl: null,
   currentPage: 0,
   totalPages: 0,
   progress: 0,
@@ -41,7 +43,12 @@ export function useScanStream() {
     sourceRef.current = null;
   }, []);
 
-  useEffect(() => closeSource, [closeSource]);
+  useEffect(() => {
+    return () => {
+      closeSource();
+      if (state.fileUrl) URL.revokeObjectURL(state.fileUrl);
+    };
+  }, [closeSource, state.fileUrl]);
 
   const appendLog = useCallback((line: string) => {
     const stamp = new Date().toLocaleTimeString("es-ES", { hour12: false });
@@ -129,7 +136,10 @@ export function useScanStream() {
   const startFromFile = useCallback(
     async (file: File) => {
       closeSource();
-      setState({ ...INITIAL_STATE, phase: "uploading" });
+      setState((prev) => {
+        if (prev.fileUrl) URL.revokeObjectURL(prev.fileUrl);
+        return { ...INITIAL_STATE, phase: "uploading", fileUrl: URL.createObjectURL(file) };
+      });
       try {
         appendLog(`Subiendo «${file.name}»...`);
         const scan = await createScan(file);
@@ -146,7 +156,10 @@ export function useScanStream() {
 
   const startSample = useCallback(async () => {
     closeSource();
-    setState({ ...INITIAL_STATE, phase: "uploading" });
+    setState((prev) => {
+      if (prev.fileUrl) URL.revokeObjectURL(prev.fileUrl);
+      return { ...INITIAL_STATE, phase: "uploading" };
+    });
     try {
       appendLog("Cargando documento de ejemplo...");
       const scan = await createSampleScan();
@@ -162,7 +175,10 @@ export function useScanStream() {
   const reset = useCallback(() => {
     closeSource();
     finishedRef.current = false;
-    setState(INITIAL_STATE);
+    setState((prev) => {
+      if (prev.fileUrl) URL.revokeObjectURL(prev.fileUrl);
+      return INITIAL_STATE;
+    });
   }, [closeSource]);
 
   return { state, startFromFile, startSample, reset };
