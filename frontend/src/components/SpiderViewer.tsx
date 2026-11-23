@@ -425,7 +425,7 @@ export function SpiderViewer({ state }: { state: ScanState }) {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="viewer-scroll relative h-[74vh] overflow-y-auto rounded-2xl border border-spider-border bg-[#070b13] p-5 sm:p-8">
           <div className="space-y-8 pb-8">
-            {showOriginal && state.fileUrl && state.scan ? (
+            {state.scan?.file_type === "pdf" && state.fileUrl ? (
               <OriginalViewer
                 fileUrl={state.fileUrl}
                 fileType={state.scan.file_type}
