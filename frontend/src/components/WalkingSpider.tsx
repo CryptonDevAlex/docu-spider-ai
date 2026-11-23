@@ -8,18 +8,23 @@ interface WalkingSpiderProps {
   durationMs?: number;
 }
 
-const LEFT_LEGS = [
-  [30, 26, 18, 18, 5, 26],
-  [30, 28, 15, 22, 2, 34],
-  [30, 30, 14, 30, 3, 44],
-  [30, 32, 18, 39, 8, 52],
-];
+type Leg = {
+  hip: [number, number];
+  k1: [number, number];
+  k2: [number, number];
+  tip: [number, number];
+  group: "a" | "b";
+};
 
-const RIGHT_LEGS = [
-  [34, 26, 46, 18, 59, 26],
-  [34, 28, 49, 22, 62, 34],
-  [34, 30, 50, 30, 61, 44],
-  [34, 32, 46, 39, 56, 52],
+const LEGS: Leg[] = [
+  { hip: [62, 43], k1: [46, 28], k2: [24, 18], tip: [6, 12], group: "a" },
+  { hip: [65, 44], k1: [52, 24], k2: [38, 8], tip: [28, -2], group: "b" },
+  { hip: [69, 44], k1: [76, 24], k2: [90, 8], tip: [102, -2], group: "a" },
+  { hip: [72, 43], k1: [88, 28], k2: [110, 18], tip: [128, 12], group: "b" },
+  { hip: [62, 57], k1: [46, 72], k2: [24, 84], tip: [6, 92], group: "b" },
+  { hip: [65, 58], k1: [52, 78], k2: [38, 96], tip: [28, 106], group: "a" },
+  { hip: [69, 58], k1: [76, 78], k2: [90, 96], tip: [102, 106], group: "b" },
+  { hip: [72, 57], k1: [88, 72], k2: [110, 84], tip: [128, 92], group: "a" },
 ];
 
 export function WalkingSpider({ targetRef, durationMs = 1700 }: WalkingSpiderProps) {
@@ -69,80 +74,89 @@ export function WalkingSpider({ targetRef, durationMs = 1700 }: WalkingSpiderPro
   return (
     <div ref={outerRef} className="walking-spider-outer" aria-hidden="true">
       <div ref={innerRef} className="walking-spider-inner">
-        <svg viewBox="0 0 64 62" className="h-[62px] w-[64px] overflow-visible">
+        <svg viewBox="-10 -10 154 124" className="h-[124px] w-[154px] overflow-visible">
           <defs>
-            <linearGradient id="spiderBody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4b5563" />
-              <stop offset="55%" stopColor="#1f2937" />
-              <stop offset="100%" stopColor="#020617" />
-            </linearGradient>
-            <linearGradient id="spiderBeam" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
-            </linearGradient>
-            <filter id="spiderSoftShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2.4" />
+            <filter id="cyber-glow" x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur stdDeviation="2.8" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
             </filter>
-            <filter id="spiderGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="1.3" />
+            <filter id="cyber-shadow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="4" />
             </filter>
+            <linearGradient id="cyber-beam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ff5a5a" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#ff5a5a" stopOpacity="0" />
+            </linearGradient>
           </defs>
 
-          <polygon points="25,44 39,44 54,92 10,92" fill="url(#spiderBeam)" opacity="0.75" />
-          <ellipse
-            cx="32"
-            cy="55"
-            rx="17"
-            ry="4"
-            fill="rgba(2, 6, 23, 0.42)"
-            filter="url(#spiderSoftShadow)"
-          />
+          <polygon points="56,60 78,60 102,120 32,120" fill="url(#cyber-beam)" opacity="0.85" />
+          <ellipse cx="67" cy="70" rx="34" ry="8" fill="rgba(2,6,23,0.38)" filter="url(#cyber-shadow)" />
 
-          {LEFT_LEGS.map((leg, index) => (
+          {LEGS.map((leg, index) => (
             <g
-              key={`left-${index}`}
-              className={`spider-leg ${index % 2 === 0 ? "spider-leg-a" : "spider-leg-b"}`}
-              style={{ transformOrigin: `${leg[0]}px ${leg[1]}px` }}
+              key={index}
+              className={`cyber-leg ${leg.group === "a" ? "cyber-leg-a" : "cyber-leg-b"}`}
+              style={{ transformOrigin: `${leg.hip[0]}px ${leg.hip[1]}px` }}
             >
-              <path
-                d={`M ${leg[0]} ${leg[1]} L ${leg[2]} ${leg[3]} L ${leg[4]} ${leg[5]}`}
+              <polyline
+                points={`${leg.hip[0]},${leg.hip[1]} ${leg.k1[0]},${leg.k1[1]}`}
                 fill="none"
-                stroke="#020617"
-                strokeWidth="1.6"
+                stroke="#1e1b4b"
+                strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx={leg[2]} cy={leg[3]} r="1.2" fill="#111827" />
-            </g>
-          ))}
-
-          {RIGHT_LEGS.map((leg, index) => (
-            <g
-              key={`right-${index}`}
-              className={`spider-leg ${index % 2 === 0 ? "spider-leg-b" : "spider-leg-a"}`}
-              style={{ transformOrigin: `${leg[0]}px ${leg[1]}px` }}
-            >
-              <path
-                d={`M ${leg[0]} ${leg[1]} L ${leg[2]} ${leg[3]} L ${leg[4]} ${leg[5]}`}
-                fill="none"
-                stroke="#020617"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx={leg[2]} cy={leg[3]} r="1.2" fill="#111827" />
+              <g
+                className={`cyber-leg-inner ${leg.group === "a" ? "cyber-leg-inner-a" : "cyber-leg-inner-b"}`}
+                style={{ transformOrigin: `${leg.k1[0]}px ${leg.k1[1]}px` }}
+              >
+                <polyline
+                  points={`${leg.k1[0]},${leg.k1[1]} ${leg.k2[0]},${leg.k2[1]} ${leg.tip[0]},${leg.tip[1]}`}
+                  fill="none"
+                  stroke="#1e1b4b"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx={leg.k2[0]} cy={leg.k2[1]} r="2.2" fill="#fff" filter="url(#cyber-glow)" />
+                <circle cx={leg.k2[0]} cy={leg.k2[1]} r="1.2" fill="#fff" />
+                <circle cx={leg.tip[0]} cy={leg.tip[1]} r="2.8" fill="#fff" filter="url(#cyber-glow)" />
+                <circle cx={leg.tip[0]} cy={leg.tip[1]} r="1.4" fill="#fff" />
+              </g>
+              <circle cx={leg.k1[0]} cy={leg.k1[1]} r="2.4" fill="#fff" filter="url(#cyber-glow)" />
+              <circle cx={leg.k1[0]} cy={leg.k1[1]} r="1.3" fill="#fff" />
             </g>
           ))}
 
           <g className="spider-body-bob">
-            <ellipse cx="32" cy="38" rx="10" ry="14" fill="url(#spiderBody)" stroke="#020617" strokeWidth="0.8" />
-            <ellipse cx="32" cy="37" rx="6" ry="9" fill="#334155" opacity="0.35" />
-            <circle cx="32" cy="25" r="7.5" fill="url(#spiderBody)" stroke="#020617" strokeWidth="0.8" />
-            <circle cx="29.5" cy="23" r="1.5" fill="#22d3ee" filter="url(#spiderGlow)" />
-            <circle cx="34.5" cy="23" r="1.5" fill="#22d3ee" filter="url(#spiderGlow)" />
-            <circle cx="29.5" cy="23" r="0.8" fill="#e2e8f0" />
-            <circle cx="34.5" cy="23" r="0.8" fill="#e2e8f0" />
-            <path d="M 28 31 L 24 34 M 36 31 L 40 34" stroke="#0f172a" strokeWidth="1.1" strokeLinecap="round" />
+            <rect x="34" y="38" width="30" height="24" rx="6" fill="#18181b" stroke="#27272a" strokeWidth="1" />
+            <g stroke="#f8fafc" strokeWidth="0.9" opacity="0.9">
+              <path d="M 38 43 H 46 V 48 H 38 Z" fill="none" />
+              <path d="M 50 43 H 60 V 48 H 50 Z" fill="none" />
+              <path d="M 42 52 H 52 V 58 H 42 Z" fill="none" />
+              <path d="M 46 43 V 38 M 55 48 V 52 M 47 58 V 62" fill="none" />
+            </g>
+            <g fill="#fff">
+              <circle cx="40" cy="45" r="1.1" />
+              <circle cx="44" cy="46" r="1" />
+              <circle cx="53" cy="45" r="1.1" />
+              <circle cx="58" cy="46" r="1" />
+              <circle cx="47" cy="55" r="1.1" />
+            </g>
+
+            <ellipse cx="74" cy="50" rx="10" ry="8.5" fill="#dc2626" stroke="#7f1d1d" strokeWidth="0.8" />
+            <g fill="#fff" opacity="0.85">
+              <circle cx="71" cy="47" r="0.8" />
+              <circle cx="74" cy="45" r="0.7" />
+              <circle cx="77" cy="47" r="0.8" />
+              <circle cx="72" cy="52" r="0.7" />
+              <circle cx="76" cy="52" r="0.7" />
+            </g>
+            <path d="M 82 47 C 86 45, 88 46, 90 48" fill="none" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M 82 53 C 86 55, 88 54, 90 52" fill="none" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" />
           </g>
         </svg>
       </div>

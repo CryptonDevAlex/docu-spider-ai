@@ -263,44 +263,79 @@ body {
   will-change: transform;
 }
 
-.spider-leg {
-  animation-duration: 0.38s;
+.cyber-leg {
+  animation-duration: 0.52s;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
 
-.spider-leg-a {
-  animation-name: spider-leg-a;
+.cyber-leg-a {
+  animation-name: cyber-leg-a;
 }
 
-.spider-leg-b {
-  animation-name: spider-leg-b;
-  animation-delay: 0.19s;
+.cyber-leg-b {
+  animation-name: cyber-leg-b;
+  animation-delay: 0.26s;
 }
 
-@keyframes spider-leg-a {
+.cyber-leg-inner {
+  animation-duration: 0.52s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.cyber-leg-inner-a {
+  animation-name: cyber-leg-inner-a;
+}
+
+.cyber-leg-inner-b {
+  animation-name: cyber-leg-inner-b;
+  animation-delay: 0.26s;
+}
+
+@keyframes cyber-leg-a {
   0%,
   100% {
-    transform: rotate(-10deg);
+    transform: rotate(-5deg);
   }
   50% {
-    transform: rotate(11deg);
+    transform: rotate(8deg);
   }
 }
 
-@keyframes spider-leg-b {
+@keyframes cyber-leg-b {
   0%,
   100% {
-    transform: rotate(11deg);
+    transform: rotate(8deg);
   }
   50% {
-    transform: rotate(-10deg);
+    transform: rotate(-5deg);
+  }
+}
+
+@keyframes cyber-leg-inner-a {
+  0%,
+  100% {
+    transform: rotate(4deg);
+  }
+  50% {
+    transform: rotate(-6deg);
+  }
+}
+
+@keyframes cyber-leg-inner-b {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(4deg);
   }
 }
 
 .spider-body-bob {
-  transform-origin: 32px 28px;
-  animation: spider-bob 0.38s ease-in-out infinite;
+  transform-origin: 67px 50px;
+  animation: spider-bob 0.52s ease-in-out infinite;
 }
 
 @keyframes spider-bob {
@@ -309,7 +344,7 @@ body {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-1.4px);
+    transform: translateY(-1.6px);
   }
 }
 
