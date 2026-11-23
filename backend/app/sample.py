@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .schemas import DocumentPage, ParsedDocument
+from .parsers import build_text_page
+from .schemas import DocBlock, ParsedDocument
 
 _SAMPLE_PAGES: list[str] = [
     """CONTRATO DE PRESTACIÓN DE SERVICIOS TECNOLÓGICOS
@@ -81,9 +82,23 @@ Este documento contiene información confidencial y está sujeto a revisión per
 def build_sample_document() -> ParsedDocument:
     """Return the built-in sample document as a parsed multi-page document."""
     pages = [
-        DocumentPage(page_number=index, label=f"Página {index}", text=text.strip())
+        build_text_page(index, f"Página {index}", text.strip())
         for index, text in enumerate(_SAMPLE_PAGES, start=1)
     ]
+
+    hitos = [
+        ["Hito", "Actividad", "Inicio", "Fin"],
+        ["1", "Análisis y diseño", "15/03/2026", "30/04/2026"],
+        ["2", "Desarrollo del núcleo", "01/05/2026", "15/07/2026"],
+        ["3", "Pruebas e integración", "16/07/2026", "31/08/2026"],
+        ["4", "Despliegue y capacitación", "01/09/2026", "30/09/2026"],
+    ]
+    for page in pages:
+        if "CRONOGRAMA" in page.text.upper():
+            page.blocks.append(DocBlock(type="table", rows=hitos))
+            page.tables.append(hitos)
+            break
+
     return ParsedDocument(
         file_name="contrato_ejemplo_innovatech.txt",
         file_type="txt",

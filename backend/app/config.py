@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
-    spider_delay_seconds: float = 0.45
+    spider_delay_seconds: float = 1.8
     max_upload_mb: int = 25
 
     frontend_origin: str = "http://localhost:3000"

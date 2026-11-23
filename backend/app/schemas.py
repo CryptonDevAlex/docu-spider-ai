@@ -8,12 +8,24 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class DocBlock(BaseModel):
+    """An ordered content block used to render a page faithfully."""
+
+    type: Literal["heading", "paragraph", "table"] = "paragraph"
+    text: str = ""
+    rows: list[list[str]] = Field(default_factory=list)
+
+
 class DocumentPage(BaseModel):
     """A single crawlable unit of a document (PDF page, sheet, chunk...)."""
 
     page_number: int
     label: str
     text: str
+    title: str = ""
+    paragraphs: list[str] = Field(default_factory=list)
+    tables: list[list[list[str]]] = Field(default_factory=list)
+    blocks: list[DocBlock] = Field(default_factory=list)
 
 
 class ParsedDocument(BaseModel):
@@ -55,6 +67,11 @@ class PageEvent(BaseModel):
     total_pages: int
     label: str
     text_preview: str
+    full_text: str
+    title: str = ""
+    paragraphs: list[str] = Field(default_factory=list)
+    tables: list[list[list[str]]] = Field(default_factory=list)
+    blocks: list[DocBlock] = Field(default_factory=list)
     entities: Entities
     progress: float
 

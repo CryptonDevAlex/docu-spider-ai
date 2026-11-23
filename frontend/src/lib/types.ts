@@ -15,12 +15,23 @@ export interface ScanCreated {
   total_pages: number;
 }
 
+export interface DocBlock {
+  type: "heading" | "paragraph" | "table";
+  text: string;
+  rows: string[][];
+}
+
 export interface PageEvent {
   type: "page";
   page_number: number;
   total_pages: number;
   label: string;
   text_preview: string;
+  full_text: string;
+  title: string;
+  paragraphs: string[];
+  tables: string[][][];
+  blocks: DocBlock[];
   entities: Entities;
   progress: number;
 }

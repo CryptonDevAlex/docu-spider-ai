@@ -43,6 +43,11 @@ async def stream_scan(document: ParsedDocument, settings: Settings) -> AsyncIter
                     total_pages=document.total_pages,
                     label=page.label,
                     text_preview=page.text[:_PREVIEW_CHARS],
+                    full_text=page.text,
+                    title=page.title,
+                    paragraphs=page.paragraphs,
+                    tables=page.tables,
+                    blocks=page.blocks,
                     entities=entities,
                     progress=progress,
                 ).model_dump(mode="json")
